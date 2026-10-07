@@ -57,12 +57,37 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// tab switcching logic
+
+type focus int
+
+const (
+	focusPost focus = iota
+	focusReplies
+	focusInput
+)
+
+// ill jus append to the haeder instead of colors
+
+func (f focus) name() string {
+	switch f {
+	case focusPost:
+		return "post"
+	case focusReplies:
+		return "replies"
+	case focusInput:
+		return "input"
+	}
+	return ""
+}
+
 type model struct {
 	width  int
 	height int
+	focus  focus
 }
 
-// tab switcching logic
+// other stuff
 
 func (m model) Init() tea.Cmd { return nil }
 
@@ -72,10 +97,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 	case tea.KeyPressMsg:
-		if msg.String() == "q" || msg.String() == "ctrl+c" {
+		switch msg.String() {
+		case "q", "ctrl+c":
 			return m, tea.Quit
+		case "tab":
+			m.focus = (m.focus + 1) % 3
+		case "shift+tab":
+			m.focus = (m.focus + 2) % 3
+		case "ctrl+n":
+			// do new psot TODO
+		case "ctrl+r":
+			// do reply to current post TODO
 		}
-
 	}
 	return m, nil
 }
@@ -115,7 +148,7 @@ func (m model) View() tea.View {
 	leftWidth := m.width * 3 / 4
 	rightWidth := m.width - leftWidth
 
-	top := pane(m.width, topHeight, "#1d2021", header("board.tgyt.dev", m.width, topHeight))
+	top := pane(m.width, topHeight, "#1d2021", header(("board.tgyt.dev"+" · "+m.focus.name()), m.width, topHeight))
 	left := pane(leftWidth, midHeight, "#282828", "Post")
 	right := pane(rightWidth, midHeight, "#3c3836", "Replies")
 	bottom := pane(m.width, bottomHeight, "#1d2021", "Post Maker")
