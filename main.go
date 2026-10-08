@@ -40,18 +40,20 @@
 // When loading replies fetch all items with ROOTPOST == POSTID
 // those will be loaded into the side panel ( right )
 // ---
-// TODO:
-// 1 tab switching
-// 2 text input
+// Dev Path??
+// 1 tab switching - done
+// 2 text input - through into nothing rn ^^^
 // 3 posts and repliees
 // 4 backend & sqlite DB
 // 5 nest app + that thingy ynk what i mena why i am i typing this only ill read this
+// set up grabing pub key
 
 package main
 
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -105,9 +107,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "shift+tab":
 			m.focus = (m.focus + 2) % 3
 		case "ctrl+n":
-			// do new psot TODO
+			// TODO: do new psot
 		case "ctrl+r":
-			// do reply to current post TODO
+			// TODO: do reply to current post
 		}
 	}
 	return m, nil
@@ -124,17 +126,43 @@ func pane(w, h int, bg string, text string) string {
 		Render(text)
 }
 
-func header(text string, w, h int) string {
+func header(left, title, right string, w, h int) string {
+	base := lipgloss.NewStyle().
+		Bold(true).
+		Italic(true).
+		Background(lipgloss.Color("#1d2021")).
+		Foreground(lipgloss.Color("#a89984")).
+		Height(h)
+
+	sideW := w / 4
+	centerW := w - 2*sideW
+
+	leftPart := base.Width(sideW).AlignHorizontal(lipgloss.Left).Render(" " + left)
+	center := base.Width(centerW).AlignHorizontal(lipgloss.Center).Render(title)
+	rightPart := base.Width(sideW).AlignHorizontal(lipgloss.Right).Render(right + " ")
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPart, center, rightPart)
+}
+
+func getNotifs() int {
+	return 9 //HACK: Hardcoded - design like stuff in db - fetch all posts with their used id and getch like lenghts and replies
+}
+
+func getNotifsText(notifCount int) string {
+	// do user get notifs stuff
+	var notifStr string
+	if notifCount < 10 {
+		notifStr = strconv.Itoa(notifCount)
+	} else {
+		notifStr = "9+" // truncate bullshit blah blah blah
+	}
 	return lipgloss.NewStyle().
 		Bold(true).
 		Italic(true).
-		Background(lipgloss.Color("#1d2021")). // workeds??? prob should do the ciolro beteter but wtv
-		Foreground(lipgloss.Color("#a89984")).
-		Width(w).
-		Height(h).
-		AlignHorizontal(lipgloss.Center). // Copy ts over and delete ( commented out ) in pane()? ^^
-		AlignVertical(lipgloss.Center).
-		Render(text)
+		Background(lipgloss.Color("#1d2021")).
+		Foreground(lipgloss.Color("#fb4934")).
+		Render(notifStr)
+
 }
 
 func (m model) View() tea.View {
@@ -148,7 +176,7 @@ func (m model) View() tea.View {
 	leftWidth := m.width * 3 / 4
 	rightWidth := m.width - leftWidth
 
-	top := pane(m.width, topHeight, "#1d2021", header(("board.tgyt.dev"+" · "+m.focus.name()), m.width, topHeight))
+	top := pane(m.width, topHeight, "#1d2021", header(getNotifsText(getNotifs()), "board.tgyt.dev", m.focus.name(), m.width, topHeight))
 	left := pane(leftWidth, midHeight, "#282828", "Post")
 	right := pane(rightWidth, midHeight, "#3c3836", "Replies")
 	bottom := pane(m.width, bottomHeight, "#1d2021", "Post Maker")
