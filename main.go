@@ -55,18 +55,23 @@ import (
 	"os"
 	"strconv"
 
+	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
 // tab switcching logic
 
+const (
+	topHeight    = 1
+	bottomHeight = 4
+)
+
 type focus int
 
 const (
 	focusPost focus = iota
 	focusReplies
-	focusInput
 )
 
 // ill jus append to the haeder instead of colors
@@ -74,19 +79,41 @@ const (
 func (f focus) name() string {
 	switch f {
 	case focusPost:
-		return "post"
+		return "Post"
 	case focusReplies:
-		return "replies"
-	case focusInput:
-		return "input"
+		return "Replies"
 	}
 	return ""
 }
 
 type model struct {
-	width  int
-	height int
-	focus  focus
+	width     int
+	height    int
+	focus     focus
+	typing    bool // NOTE: use for displaiying the inpuit box instead of having a static one ... cooler ig
+	postMaker textarea.Model
+}
+
+// post input thingy
+
+func newModel() model {
+	postMakerIniter := textarea.New()
+	postMakerIniter.ShowLineNumbers = false
+	postMakerIniter.Prompt = ""
+	postMakerIniter.Placeholder = "Type in your post / reply (Markdown is supported)"
+	return model{postMaker: postMakerIniter}
+}
+
+// cool REAL header name abstraction-inator 3000
+
+func (m model) realHeaderNameinator3000() string {
+	if m.typing {
+		if m.focus == focusReplies {
+			return "Replying to PLACEHOLDER" // HACK: Hardcoded until sqlite db setup - auto gen title or like make a req
+		}
+		return "Viewing PLACEHOLDER" // llook above dipshit
+	}
+	return m.focus.name()
 }
 
 // other stuff
@@ -98,21 +125,49 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.postMaker.SetWidth(m.width)
+		m.postMaker.SetHeight(bottomHeight)
 	case tea.KeyPressMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "ctrl+c":
 			return m, tea.Quit
-		case "tab":
-			m.focus = (m.focus + 1) % 3
-		case "shift+tab":
-			m.focus = (m.focus + 2) % 3
+		case "ctrl+tab":
+			if !m.typing {
+				m.focus = (m.focus + 1) % 3
+			}
 		case "ctrl+n":
-			// TODO: do new psot
-		case "ctrl+r":
-			// TODO: do reply to current post
-		}
+			if m.typing {
+				return m, nil
+			}
+			m.typing = true
+			return m, m.postMaker.Focus()
+		case "ctrl+e":
+			if m.typing {
+				m.typing = false
+				m.postMaker.Blur()
+				m.postMaker.Reset()
+			}
+			return m, nil
+		case "ctrl+s": // TODO: SQLite stuff
+			if m.typing {
+				postContent := m.postMaker.Value()
+				if m.focus == focusReplies {
+					_ = postContent
+				} else {
+					_ = postContent
+				}
+				m.typing = false
+				m.postMaker.Blur()
+				m.postMaker.Reset()
+			}
+			return m, nil
+		} // NOTE: Didnt need the reply... streamline posting with ctrl n for all depends on tab selected now
 	}
-	return m, nil
+	var cmd tea.Cmd
+	if m.typing {
+		m.postMaker, cmd = m.postMaker.Update(msg)
+	}
+	return m, cmd
 }
 
 func pane(w, h int, bg string, text string) string {
@@ -145,17 +200,22 @@ func header(left, title, right string, w, h int) string {
 }
 
 func getNotifs() int {
-	return 9 //HACK: Hardcoded - design like stuff in db - fetch all posts with their used id and getch like lenghts and replies
+	return 1 // HACK: Hardcoded - design like stuff in db - fetch all posts with their used id and getch like lenghts and replies
 }
 
 func getNotifsText(notifCount int) string {
 	// do user get notifs stuff
 	var notifStr string
-	if notifCount < 10 {
-		notifStr = strconv.Itoa(notifCount)
+	if notifCount < 10 && notifCount != 1 {
+		notifStr = strconv.Itoa(notifCount) + " Notifications"
+	} else if notifCount == 1 {
+		notifStr = "1 Notification"
+	} else if notifCount > 9 {
+		notifStr = "9+ Notifications" // truncate bullshit blah blah blah
 	} else {
-		notifStr = "9+" // truncate bullshit blah blah blah
+		notifStr = "No Notifications"
 	}
+	// maybe swap to switch - im too lazy
 	return lipgloss.NewStyle().
 		Bold(true).
 		Italic(true).
@@ -170,16 +230,21 @@ func (m model) View() tea.View {
 		return tea.NewView("loading...")
 	}
 
-	topHeight := 1
-	bottomHeight := 4
 	midHeight := m.height - topHeight - bottomHeight
 	leftWidth := m.width * 3 / 4
 	rightWidth := m.width - leftWidth
 
-	top := pane(m.width, topHeight, "#1d2021", header(getNotifsText(getNotifs()), "board.tgyt.dev", m.focus.name(), m.width, topHeight))
+	top := pane(m.width, topHeight, "#1d2021", header(getNotifsText(getNotifs()), "board.tgyt.dev", m.realHeaderNameinator3000(), m.width, topHeight))
 	left := pane(leftWidth, midHeight, "#282828", "Post")
 	right := pane(rightWidth, midHeight, "#3c3836", "Replies")
-	bottom := pane(m.width, bottomHeight, "#1d2021", "Post Maker")
+	bottomText := " ctrl+n: new post"
+	if m.focus == focusReplies {
+		bottomText = " ctrl+n: reply to this post"
+	}
+	if m.typing {
+		bottomText = m.postMaker.View()
+	}
+	bottom := pane(m.width, bottomHeight, "#1d2021", bottomText)
 
 	middle := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	content := lipgloss.JoinVertical(lipgloss.Left, top, middle, bottom)
@@ -190,7 +255,7 @@ func (m model) View() tea.View {
 }
 
 func main() {
-	if _, err := tea.NewProgram(model{}).Run(); err != nil {
+	if _, err := tea.NewProgram(newModel()).Run(); err != nil {
 		fmt.Println("error:", err)
 		os.Exit(1)
 	}
