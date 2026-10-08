@@ -101,6 +101,25 @@ func newModel() model {
 	postMakerIniter.ShowLineNumbers = false
 	postMakerIniter.Prompt = ""
 	postMakerIniter.Placeholder = "Type in your post / reply (Markdown is supported)"
+
+	// i lowk had gemini write this styling part ( JUST THIS PART NOT THE ACTUAL LOGIC AND THAT TEXT PART THATS MINE )
+
+	bg := lipgloss.Color("#1d2021")
+	fg := lipgloss.Color("#ebdbb2")
+	dim := lipgloss.Color("#928374")
+	accent := lipgloss.Color("#fabd2f")
+
+	s := postMakerIniter.Styles()
+	s.Focused.Base = lipgloss.NewStyle().Background(bg)
+	s.Focused.Text = lipgloss.NewStyle().Background(bg).Foreground(fg)
+	s.Focused.CursorLine = lipgloss.NewStyle().Background(lipgloss.Color("#282828")).Foreground(fg)
+	s.Focused.Placeholder = lipgloss.NewStyle().Background(bg).Foreground(dim).Italic(true)
+	s.Focused.EndOfBuffer = lipgloss.NewStyle().Background(bg)
+	s.Cursor.Color = accent
+	postMakerIniter.SetStyles(s)
+
+	// ai styling part ends here
+
 	return model{postMaker: postMakerIniter}
 }
 
