@@ -131,10 +131,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
-		case "ctrl+tab":
+		case "tab", "shift+tab":
 			if !m.typing {
-				m.focus = (m.focus + 1) % 3
+				m.focus = (m.focus + 1) % 2
 			}
+			return m, nil
 		case "ctrl+n":
 			if m.typing {
 				return m, nil
@@ -230,24 +231,24 @@ func (m model) View() tea.View {
 		return tea.NewView("loading...")
 	}
 
-	midHeight := m.height - topHeight - bottomHeight
+	bh := 0
+	if m.typing {
+		bh = bottomHeight
+	}
+	midHeight := m.height - topHeight - bh
 	leftWidth := m.width * 3 / 4
 	rightWidth := m.width - leftWidth
 
 	top := pane(m.width, topHeight, "#1d2021", header(getNotifsText(getNotifs()), "board.tgyt.dev", m.realHeaderNameinator3000(), m.width, topHeight))
 	left := pane(leftWidth, midHeight, "#282828", "Post")
 	right := pane(rightWidth, midHeight, "#3c3836", "Replies")
-	bottomText := " ctrl+n: new post"
-	if m.focus == focusReplies {
-		bottomText = " ctrl+n: reply to this post"
-	}
-	if m.typing {
-		bottomText = m.postMaker.View()
-	}
-	bottom := pane(m.width, bottomHeight, "#1d2021", bottomText)
 
 	middle := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
-	content := lipgloss.JoinVertical(lipgloss.Left, top, middle, bottom)
+	parts := []string{top, middle}
+	if m.typing {
+		parts = append(parts, pane(m.width, bottomHeight, "#1d2021", m.postMaker.View()))
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	v := tea.NewView(content)
 	v.AltScreen = true
