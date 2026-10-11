@@ -51,21 +51,31 @@
 package main
 
 import (
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"net"
 	"os"
 	"strconv"
 
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"charm.land/ssh"
+	"charm.land/wish/v2"
+	"charm.land/wish/v2/bubbletea"
 )
 
-// tab switcching logic
+// siziing
 
 const (
-	topHeight    = 1
-	bottomHeight = 4
+	topHeight      = 1
+	bottomHeight   = 4
+	initMsgsLoaded = 50
 )
+
+// tab stufff
 
 type focus int
 
@@ -74,7 +84,7 @@ const (
 	focusReplies
 )
 
-// ill jus append to the haeder instead of colors
+// ill jus append to the haeder instead of colors - tf did i mean here?
 
 func (f focus) name() string {
 	switch f {
@@ -86,23 +96,40 @@ func (f focus) name() string {
 	return ""
 }
 
+// user stuff - vscode is really cool for formatting, my lovely nvim would never ]:<
+
 type model struct {
-	width     int
-	height    int
-	focus     focus
-	typing    bool // NOTE: use for displaiying the inpuit box instead of having a static one ... cooler ig
-	postMaker textarea.Model
+	width           int
+	height          int
+	focus           focus
+	typing          bool // NOTE: use for displaiying the inpuit box instead of having a static one ... cooler ig
+	postMaker       textarea.Model
+	db              *sql.DB
+	userID          string
+	posts           []post
+	replies         []post
+	cursor          int
+	offset          int
+	settingUsername bool
+	username        string
 }
 
 // post input thingy
 
-func newModel() model {
+func newModel(db *sql.DB, userID string) model {
 	postMakerIniter := textarea.New()
 	postMakerIniter.ShowLineNumbers = false
 	postMakerIniter.Prompt = ""
-	postMakerIniter.Placeholder = "Type in your post / reply (Markdown is supported)"
+	existingUsername, err := getUsername(db, userID)
 
-	// i lowk had gemini write this styling part ( JUST THIS PART NOT THE ACTUAL LOGIC AND THAT TEXT PART THATS MINE )
+	settingUsername := false
+
+	if err != nil || existingUsername == "" {
+		settingUsername = true
+		postMakerIniter.Placeholder = "Enter your chosen username and press ctrl+s"
+	} else {
+		postMakerIniter.Placeholder = "Type in your post / reply (Markdown is supported)"
+	}
 
 	bg := lipgloss.Color("#1d2021")
 	fg := lipgloss.Color("#ebdbb2")
@@ -118,19 +145,39 @@ func newModel() model {
 	s.Cursor.Color = accent
 	postMakerIniter.SetStyles(s)
 
-	// ai styling part ends here
+	initPosts, _ := getPosts(db, 0, initMsgsLoaded)
 
-	return model{postMaker: postMakerIniter}
+	return model{
+		postMaker:       postMakerIniter,
+		db:              db,
+		userID:          userID,
+		username:        existingUsername,
+		posts:           initPosts,
+		settingUsername: settingUsername,
+		typing:          settingUsername,
+	}
+}
+
+// hashPubKey returns the stable user ID associated with an SSH public key.
+// Marshal is the canonical SSH wire representation, so the result does not
+// depend on how the key was formatted in an authorized_keys file.
+func hashPubKey(key ssh.PublicKey) string {
+	if key == nil {
+		return ""
+	}
+
+	hash := sha256.Sum256(key.Marshal())
+	return hex.EncodeToString(hash[:])
 }
 
 // cool REAL header name abstraction-inator 3000
 
 func (m model) realHeaderNameinator3000() string {
 	if m.typing {
-		if m.focus == focusReplies {
-			return "Replying to PLACEHOLDER" // HACK: Hardcoded until sqlite db setup - auto gen title or like make a req
+		if m.focus == focusReplies && len(m.posts) > 0 {
+			return fmt.Sprintf("Replying to Post #[%d]", m.posts[m.cursor].postId)
 		}
-		return "Viewing PLACEHOLDER" // llook above dipshit
+		return "Writing New Post"
 	}
 	return m.focus.name()
 }
@@ -148,6 +195,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.postMaker.SetHeight(bottomHeight)
 	case tea.KeyPressMsg:
 		switch msg.String() {
+		case "j":
+			if !m.typing && m.cursor < len(m.posts)-1 {
+				m.cursor++
+			}
+		case "k":
+			if !m.typing && m.cursor > 0 {
+				m.cursor--
+			}
 		case "ctrl+c":
 			return m, tea.Quit
 		case "tab", "shift+tab":
@@ -168,19 +223,40 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.postMaker.Reset()
 			}
 			return m, nil
-		case "ctrl+s": // TODO: SQLite stuff
+		case "ctrl+s":
 			if m.typing {
 				postContent := m.postMaker.Value()
-				if m.focus == focusReplies {
-					_ = postContent
-				} else {
-					_ = postContent
+				if postContent != "" {
+					var rootPost int64 = 0
+					if m.focus == focusReplies && len(m.posts) > 0 {
+						rootPost = m.posts[m.cursor].postId
+					}
+
+					// Save post using db.go helper
+					_ = makePost(m.db, m.userID, postContent, rootPost)
+
+					// Refresh the post list immediately
+					if rootPost == 0 {
+						m.posts, _ = getPosts(m.db, 0, 50)
+					} else {
+						m.replies, _ = getPosts(m.db, rootPost, 50)
+					}
 				}
 				m.typing = false
 				m.postMaker.Blur()
 				m.postMaker.Reset()
 			}
 			return m, nil
+		case "ctrl+l": // Like the currently selected post
+			if !m.typing && len(m.posts) > 0 {
+				selectedPost := m.posts[m.cursor]
+				_ = toggleLike(m.db, selectedPost.postId, m.userID)
+
+				// Refresh posts to update the like counts
+				m.posts, _ = getPosts(m.db, 0, 50)
+			}
+			return m, nil
+
 		} // NOTE: Didnt need the reply... streamline posting with ctrl n for all depends on tab selected now
 	}
 	var cmd tea.Cmd
@@ -219,9 +295,7 @@ func header(left, title, right string, w, h int) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftPart, center, rightPart)
 }
 
-func getNotifs() int {
-	return 1 // HACK: Hardcoded - design like stuff in db - fetch all posts with their used id and getch like lenghts and replies
-}
+// notifs bs scrapped - too complex and takes too long - shipping soon
 
 func getNotifsText(notifCount int) string {
 	// do user get notifs stuff
@@ -258,9 +332,42 @@ func (m model) View() tea.View {
 	leftWidth := m.width * 3 / 4
 	rightWidth := m.width - leftWidth
 
-	top := pane(m.width, topHeight, "#1d2021", header(getNotifsText(getNotifs()), "board.tgyt.dev", m.realHeaderNameinator3000(), m.width, topHeight))
-	left := pane(leftWidth, midHeight, "#282828", "Post")
-	right := pane(rightWidth, midHeight, "#3c3836", "Replies")
+	// notifCount := getNotifs(m.db)
+
+	// Format posts for the left pane
+	leftContent := "No posts yet (Something could be wrong?). Press ctrl+n to write one!"
+	if len(m.posts) > 0 {
+		leftContent = ""
+		for i, p := range m.posts {
+			cursor := "  "
+			if i == m.cursor && m.focus == focusPost {
+				cursor = "> " // Show a cursor marker on the active post
+			}
+			author := p.username
+			if author == "" {
+				author = p.userId[:8]
+			}
+			leftContent += fmt.Sprintf("%s[%d] %s (♥ %d)\n%s\n\n", cursor, p.postId, author, len(p.likes), p.content)
+		}
+	}
+
+	rightContent := "Select a post to view replies"
+	if len(m.posts) > 0 {
+		selectedPostID := m.posts[m.cursor].postId
+		replies, _ := getPosts(m.db, selectedPostID, 20)
+		if len(replies) > 0 {
+			rightContent = ""
+			for _, r := range replies {
+				rightContent += fmt.Sprintf("[%d] %s:\n%s\n\n", r.postId, r.userId[:8], r.content)
+			}
+		} else {
+			rightContent = "No replies yet."
+		}
+	}
+
+	top := pane(m.width, topHeight, "#1d2021", header("", "board.tgyt.dev", m.realHeaderNameinator3000(), m.width, topHeight))
+	left := pane(leftWidth, midHeight, "#282828", leftContent)
+	right := pane(rightWidth, midHeight, "#3c3836", rightContent)
 
 	middle := lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	parts := []string{top, middle}
@@ -275,8 +382,43 @@ func (m model) View() tea.View {
 }
 
 func main() {
-	if _, err := tea.NewProgram(newModel()).Run(); err != nil {
-		fmt.Println("error:", err)
+	dbPath := os.Getenv("DB_PATH")
+	if dbPath == "" {
+		dbPath = "board.db"
+	}
+	db, err := openDB(dbPath)
+	if err != nil {
+		fmt.Println("database error:", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "2222"
+	}
+	address := net.JoinHostPort(os.Getenv("HOST"), port)
+
+	hostKeyPath := os.Getenv("KEY_PATH")
+	if hostKeyPath == "" {
+		hostKeyPath = ".ssh/id_ed25519"
+	}
+
+	server, err := wish.NewServer(
+		wish.WithAddress(address),
+		wish.WithHostKeyPath(hostKeyPath),
+		wish.WithPublicKeyAuth(func(_ ssh.Context, _ ssh.PublicKey) bool { return true }),
+		wish.WithMiddleware(bubbletea.Middleware(func(sess ssh.Session) (tea.Model, []tea.ProgramOption) {
+			return newModel(db, hashPubKey(sess.PublicKey())), nil
+		})),
+	)
+	if err != nil {
+		fmt.Println("SSH server error:", err)
+		os.Exit(1)
+	}
+
+	if err := server.ListenAndServe(); err != nil {
+		fmt.Println("SSH server error:", err)
 		os.Exit(1)
 	}
 }

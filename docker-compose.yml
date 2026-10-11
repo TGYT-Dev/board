@@ -1,0 +1,17 @@
+services:
+  board:
+    build: .
+    container_name: board
+    restart: unless-stopped
+    ports:
+      - "2222:2222"
+    environment:
+      - PORT=2222
+      - HOST=0.0.0.0
+      - DB_PATH=/app/data/board.db
+      - KEY_PATH=/app/data/.ssh/id_ed25519
+    volumes:
+      - board_data:/app/data
+
+volumes:
+  board_data:
