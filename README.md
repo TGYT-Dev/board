@@ -11,7 +11,7 @@ It runs on BubbleTea and Wish. I hope you like it!
 > - And More !
 
 ## Hosting
-I Plan on hosting this on Nest, hack clubs hosting service for teens and buying a domain from cloudflare.
+I host this on Nest, hack clubs hosting service for teens and plan on buying a domain from cloudflare.
 
 ## Connecting
 You *NEED* IPv6. You can test whether or not you have support for it via [this link](https://test-ipv6.com/)
