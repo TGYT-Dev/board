@@ -9,7 +9,7 @@ ssh 2a01:4f9:3080:3192::2056 -p 2222
 ## Overview
 
 This is a message board built in a week for the crescent YSWS event run by hackclub.
-It is written in GO, my first time doing this so probably a little weird as I am kinda learning as I go along. It is accessed via SSH.
+It is written in Golang, my first time doing this so probably a little weird as I am kinda learning as I go along. It is accessed via SSH.
 It runs on BubbleTea and Wish. I hope you like it!
 
 ## Features
