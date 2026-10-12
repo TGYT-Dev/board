@@ -12,3 +12,19 @@ It runs on BubbleTea and Wish. I hope you like it!
 
 ## Hosting
 I Plan on hosting this on Nest, hack clubs hosting service for teens and buying a domain from cloudflare.
+
+## Connecting
+You *NEED* IPv6. You can test whether or not you have support for it via [this link](https://test-ipv6.com/)
+ssh into the board via the command below.
+`ssh 2a01:4f9:3080:3192::2056 -p 2222`
+
+## Controls
+| Key | Action |
+|---|---|
+| j / k | Move between posts |
+| Tab / Shift+Tab | Switch between posts and replies |
+| Ctrl+N | Write a new post or reply |
+| Ctrl+S | Send post or save username |
+| Ctrl+E | Cancel writing |
+| Ctrl+L | Like or unlike the selected post |
+| Ctrl+C | Quit |
