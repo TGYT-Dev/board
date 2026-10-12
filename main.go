@@ -127,7 +127,7 @@ func newModel(db *sql.DB, userID string) model {
 
 	if err != nil || existingUsername == "" {
 		settingUsername = true
-		postMakerIniter.Placeholder = "Enter your chosen username and press ctrl+s"
+		postMakerIniter.Placeholder = "Enter your chosen username and press ctrl+enter"
 	} else {
 		postMakerIniter.Placeholder = "Type in your post / reply (Markdown is supported)"
 	}
@@ -224,8 +224,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.postMaker.Reset()
 			}
 			return m, nil
-		case "ctrl+s":
+		case "ctrl+enter", "ctrl+s":
 			if m.typing {
+				// Ctrl+S is commonly consumed by SSH terminal flow control, so
+				// Ctrl+Enter submits a username without turning Enter into a
+				// submit key for the multiline textarea.
+				if msg.String() == "ctrl+enter" && !m.settingUsername {
+					break
+				}
 				postContent := strings.TrimSpace(m.postMaker.Value())
 				if m.settingUsername {
 					if postContent == "" || setUsername(m.db, m.userID, postContent) != nil {
