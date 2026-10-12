@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/ssh"
 	"charm.land/wish/v2"
 	gossh "golang.org/x/crypto/ssh"
@@ -56,6 +57,63 @@ func TestNewModelWithUserID(t *testing.T) {
 
 	if m.userID != testUserID {
 		t.Fatalf("expected model userID to be %q, got %q", testUserID, m.userID)
+	}
+}
+
+func TestSetUsername(t *testing.T) {
+	db, err := openDB(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open memory db: %v", err)
+	}
+	defer db.Close()
+
+	const userID = "username-test-user"
+	if err := setUsername(db, userID, "first-name"); err != nil {
+		t.Fatalf("setUsername failed: %v", err)
+	}
+	if err := setUsername(db, userID, "updated-name"); err != nil {
+		t.Fatalf("updating username failed: %v", err)
+	}
+
+	username, err := getUsername(db, userID)
+	if err != nil {
+		t.Fatalf("getUsername failed: %v", err)
+	}
+	if username != "updated-name" {
+		t.Fatalf("expected updated username, got %q", username)
+	}
+}
+
+func TestUsernameEntrySavesUsernameInsteadOfPost(t *testing.T) {
+	db, err := openDB(":memory:")
+	if err != nil {
+		t.Fatalf("failed to open memory db: %v", err)
+	}
+	defer db.Close()
+
+	const userID = "new-user"
+	m := newModel(db, userID)
+	m.postMaker.SetValue("  codex  ")
+
+	updated, _ := m.Update(tea.KeyPressMsg(tea.Key{Code: 's', Mod: tea.ModCtrl}))
+	updatedModel := updated.(model)
+
+	username, err := getUsername(db, userID)
+	if err != nil {
+		t.Fatalf("getUsername failed: %v", err)
+	}
+	if username != "codex" {
+		t.Fatalf("expected saved username %q, got %q", "codex", username)
+	}
+	if updatedModel.settingUsername || updatedModel.typing {
+		t.Fatal("expected username entry to finish after saving")
+	}
+	posts, err := getPosts(db, 0, 10)
+	if err != nil {
+		t.Fatalf("getPosts failed: %v", err)
+	}
+	if len(posts) != 0 {
+		t.Fatalf("expected no post to be created while setting a username, got %d", len(posts))
 	}
 }
 
@@ -226,4 +284,3 @@ func TestToggleLike(t *testing.T) {
 		t.Fatalf("expected 0 likes, got %d", len(posts[0].likes))
 	}
 }
-

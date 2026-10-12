@@ -58,6 +58,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
@@ -217,7 +218,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.typing = true
 			return m, m.postMaker.Focus()
 		case "ctrl+e":
-			if m.typing {
+			if m.typing && !m.settingUsername {
 				m.typing = false
 				m.postMaker.Blur()
 				m.postMaker.Reset()
@@ -225,7 +226,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		case "ctrl+s":
 			if m.typing {
-				postContent := m.postMaker.Value()
+				postContent := strings.TrimSpace(m.postMaker.Value())
+				if m.settingUsername {
+					if postContent == "" || setUsername(m.db, m.userID, postContent) != nil {
+						return m, nil
+					}
+
+					m.username = postContent
+					m.settingUsername = false
+					m.postMaker.Placeholder = "Type in your post / reply (Markdown is supported)"
+					m.typing = false
+					m.postMaker.Blur()
+					m.postMaker.Reset()
+					return m, nil
+				}
+
 				if postContent != "" {
 					var rootPost int64 = 0
 					if m.focus == focusReplies && len(m.posts) > 0 {
