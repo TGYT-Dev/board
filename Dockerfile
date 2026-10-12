@@ -1,29 +1,28 @@
 # Build stage
-FROM golang:alpine AS builder
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /src
 
-# Copy go module files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
 
-# Build static binary
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /app/board .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -trimpath -ldflags="-s -w" -o /app/board .
 
-# Runtime stage
-FROM alpine:latest
+# Create directories in builder so they exist in final image
+RUN mkdir -p /app/data /app/.ssh
 
-RUN apk --no-cache add ca-certificates tzdata
+# Runtime stage: lighter than alpine, no package manager
+FROM gcr.io/distroless/static-debian12:nonroot
 
 WORKDIR /app
 
 COPY --from=builder /app/board /app/board
-
-# Create data directory for database and SSH host key persistence
-RUN mkdir -p /app/data /app/.ssh
+# Copy empty directories created in builder so volume mount points exist
+COPY --from=builder /app/data /app/data
+COPY --from=builder /app/.ssh /app/.ssh
 
 ENV PORT=2222 \
     HOST=0.0.0.0 \
