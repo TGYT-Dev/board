@@ -9,7 +9,7 @@ require (
 	charm.land/ssh v0.4.3
 	charm.land/wish/v2 v2.0.5
 	github.com/glebarez/go-sqlite v1.23.0
-	golang.org/x/crypto v0.57.0
+	golang.org/x/crypto v0.57.0 // indirect
 )
 
 require (
