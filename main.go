@@ -127,7 +127,8 @@ func newModel(db *sql.DB, userID string) model {
 
 	if err != nil || existingUsername == "" {
 		settingUsername = true
-		postMakerIniter.Placeholder = "Enter your chosen username and press ctrl+enter"
+		postMakerIniter.Placeholder = "Enter your chosen username and press Enter"
+		postMakerIniter.Focus()
 	} else {
 		postMakerIniter.Placeholder = "Type in your post / reply (Markdown is supported)"
 	}
@@ -138,11 +139,15 @@ func newModel(db *sql.DB, userID string) model {
 	accent := lipgloss.Color("#fabd2f")
 
 	s := postMakerIniter.Styles()
-	s.Focused.Base = lipgloss.NewStyle().Background(bg)
+	// Set foreground on the base styles too: the textarea renders cursor-line
+	// and padding cells separately from Text, and SSH terminals may otherwise
+	// use a dark default foreground on this dark background.
+	s.Focused.Base = lipgloss.NewStyle().Background(bg).Foreground(fg)
 	s.Focused.Text = lipgloss.NewStyle().Background(bg).Foreground(fg)
 	s.Focused.CursorLine = lipgloss.NewStyle().Background(lipgloss.Color("#282828")).Foreground(fg)
 	s.Focused.Placeholder = lipgloss.NewStyle().Background(bg).Foreground(dim).Italic(true)
 	s.Focused.EndOfBuffer = lipgloss.NewStyle().Background(bg)
+	s.Blurred.Base = lipgloss.NewStyle().Background(bg).Foreground(fg)
 	s.Cursor.Color = accent
 	postMakerIniter.SetStyles(s)
 
@@ -196,6 +201,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.postMaker.SetHeight(bottomHeight)
 	case tea.KeyPressMsg:
 		switch msg.String() {
+		case "enter":
+			if m.typing && m.settingUsername {
+				postContent := strings.TrimSpace(m.postMaker.Value())
+				if postContent != "" && setUsername(m.db, m.userID, postContent) == nil {
+					m.username = postContent
+					m.settingUsername = false
+					m.postMaker.Placeholder = "Type in your post / reply (Markdown is supported)"
+					m.typing = false
+					m.postMaker.Blur()
+					m.postMaker.Reset()
+				}
+				return m, nil
+			}
 		case "j":
 			if !m.typing && m.cursor < len(m.posts)-1 {
 				m.cursor++

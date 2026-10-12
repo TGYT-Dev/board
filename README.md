@@ -24,7 +24,7 @@ ssh into the board via the command below.
 | j / k | Move between posts |
 | Tab / Shift+Tab | Switch between posts and replies |
 | Ctrl+N | Write a new post or reply |
-| Ctrl+S | Send post (Ctrl+Enter saves the username during setup) |
+| Ctrl+S | Send post (press Enter to save the username during setup) |
 | Ctrl+E | Cancel writing |
 | Ctrl+L | Like or unlike the selected post |
 | Ctrl+C | Quit |
