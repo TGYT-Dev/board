@@ -456,6 +456,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	go serve() // run it on a go routine cuz its alike a sierever or whatever and that owuldn cause below to be uncreachable blah blah balh
+
 	if err := server.ListenAndServe(); err != nil {
 		fmt.Println("SSH server error:", err)
 		os.Exit(1)
