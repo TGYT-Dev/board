@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Board</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  @font-face {
+    font-family: 'JetBrainsMono Nerd Font';
+    src: local('JetBrainsMono Nerd Font'), local('JetBrains Mono');
+  }
+
+  :root {
+    --gbBg0: #282828;
+    --gbBg1: #3c3836;
+    --gbFg1: #ebdbb2;
+    --gbFg3: #bdae93;
+    --gbYellow: #fabd2f;
+    --gbGreen: #b8bb26;
+    --gbAqua: #8ec07c;
+    --gbRed: #fb4934;
+  }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  ::selection {
+    background: var(--gbRed);
+    color: var(--gbBg0);
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gbBg0);
+    color: var(--gbFg1);
+    font-family: 'JetBrainsMono Nerd Font', 'JetBrains Mono', monospace;
+    text-align: left;
+  }
+
+  h1 {
+    margin: 0 0 3px;
+    font-weight: 600;
+  }
+
+  .commandBox {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px;
+    background: var(--gbBg1);
+    font-size: 14px;
+  }
+
+  .command {
+    margin: 0;
+    white-space: nowrap;
+  }
+
+  .copyBtn {
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .copyBtn:hover {
+    color: var(--gbYellow);
+  }
+
+  .linkRow {
+    margin: 4px 0 0;
+    font-size: 11px;
+    line-height: 1.2;
+    font-style: italic;
+    color: var(--gbFg3);
+  }
+
+  a {
+    color: var(--gbAqua);
+  }
+
+  a:hover {
+    color: var(--gbYellow);
+  }
+</style>
+</head>
+
+<body>
+<div>
+  <h1>Connect</h1>
+  <div class="commandBox">
+    <p class="command" id="sshCommand">ssh 2a01:4f9:3080:3192::2056 -p 2222</p>
+    <button type="button" class="copyBtn" onclick="copyCommand(this)">
+      <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
+        <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"></path>
+        <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"></path>
+      </svg>
+    </button>
+  </div>
+  <p class="linkRow">IpV6 is required, <a href="https://test-ipv6.com/">click here to test</a></p>
+</div>
+
+<script>
+  const checkIcon = `<svg viewBox="0 0 16 16" width="16" height="16" fill="var(--gbGreen)"><path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"></path></svg>`;
+
+  function copyCommand(btn) {
+    navigator.clipboard.writeText(document.getElementById('sshCommand').textContent).then(() => {
+      const original = btn.innerHTML;
+      btn.innerHTML = checkIcon;
+      setTimeout(() => { btn.innerHTML = original; }, 1500);
+    });
+  }
+</script>
+</body>
+</html>
