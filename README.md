@@ -21,6 +21,7 @@ It runs on BubbleTea and Wish. I hope you like it!
 
 ## Hosting
 I host this on Nest, hack clubs hosting service for teens, and plan on buying a domain from cloudflare.
+You can host this by running `docker compose up -d`, starting the docker container. 
 
 ## Controls
 | Key | Action |
